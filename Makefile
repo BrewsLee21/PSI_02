@@ -1,29 +1,29 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g -I./lib/libcrc/include
-LDFLAGS = -L./lib/libcrc/lib -lcrc
+CFLAGS = -Wall -Wextra -g
 
-# 1. Define the object directory
-OBJDIR = obj
+OBJ_COMMON = utils.o network.o
+OBJ_SENDER = sender.o $(OBJ_COMMON)
+OBJ_RECEIVER = receiver.o $(OBJ_COMMON)
 
-OBJ_COMMON = $(OBJDIR)/utils.o $(OBJDIR)/network.o
-OBJ_SENDER = $(OBJDIR)/sender.o $(OBJ_COMMON)
-OBJ_RECEIVER = $(OBJDIR)/receiver.o $(OBJ_COMMON)
-
-all: $(OBJDIR) sender receiver
-
-# 2. Rule to create the object directory if it doesn't exist
-$(OBJDIR):
-	mkdir -p $(OBJDIR)
+all: sender receiver
 
 sender: $(OBJ_SENDER)
-	$(CC) $(CFLAGS) -o sender $(OBJ_SENDER) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o sender $(OBJ_SENDER)
 
 receiver: $(OBJ_RECEIVER)
-	$(CC) $(CFLAGS) -o receiver $(OBJ_RECEIVER) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o receiver $(OBJ_RECEIVER)
 
-# 3. Pattern rule: Compile any .c file into the $(OBJDIR)
-$(OBJDIR)/%.o: %.c | $(OBJDIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+sender.o: sender.c utils.h network.h
+	$(CC) $(CFLAGS) -c sender.c
+
+receiver.o: receiver.c utils.h network.h
+	$(CC) $(CFLAGS) -c receiver.c
+
+utils.o: utils.c utils.h
+	$(CC) $(CFLAGS) -c utils.c
+
+network.o: network.c network.h
+	$(CC) $(CFLAGS) -c network.c
 
 clean:
-	rm -rf $(OBJDIR) sender receiver
+	rm -f *.o sender receiver
