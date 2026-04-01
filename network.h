@@ -3,15 +3,18 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+// Uloha 2
+#include <openssl/sha.h>
+
 #ifndef NETWORK_H
 #define NETWORK_H
 
 #define ACK_TIMEOUT 5
 
-#define MAX_DATA_SIZE 1024
 #define PORT "8080"
 
 #define HEADER_SIZE (sizeof(enum PacketType) + sizeof(uint32_t)) // enum + uint32_t
+#define MAX_DATA_SIZE 1024 // Do NOT make this lower !!!
 #define MAX_PACKET_BUFFER_SIZE (HEADER_SIZE + MAX_DATA_SIZE)
 
 #define MAX_FPATH_SIZE 255
@@ -52,6 +55,8 @@ typedef struct packet {
 	enum PacketType type; // packet type
 	uint32_t data_len; // length of data (in bytes)
 	char data[MAX_DATA_SIZE];
+	unsigned char hash[SHA256_DIGEST_LENGTH]; // Only used in the START (init) packet, otherwise value might be undefined
+	uint32_t crc;
 } packet_t;
 
 typedef struct peerinfo {

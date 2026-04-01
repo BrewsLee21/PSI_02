@@ -24,31 +24,11 @@ int main() {
         return 1;
     }
 
-    //struct sockaddr_in *ipv4;
-    //struct sockaddr_in6 *ipv6;
     int my_socket;
-
-    //char ipstr[INET6_ADDRSTRLEN];
-
     
     // Create socket and bind to the first available address
     struct addrinfo *p;
     for (p = res; p != NULL; p = p->ai_next) {
-
-        // Prints addresses in res
-        /*
-        if (p->ai_family == AF_INET) {
-            ipv4 = (struct sockaddr_in *)p->ai_addr;
-            inet_ntop(AF_INET, &(ipv4->sin_addr), ipstr, sizeof(ipstr));
-            printf("ipv4: %s\n", ipstr);
-        } 
-        else if (p->ai_family == AF_INET6) {
-            ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-            inet_ntop(AF_INET6, &(ipv6->sin6_addr), ipstr, sizeof(ipstr));
-            printf("ipv6: %s\n", ipstr);
-        }
-        */
-
         if ((my_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
             continue;
         }

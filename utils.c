@@ -2,6 +2,9 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include <zlib.h>
+#include <openssl/sha.h>
+
 #include "utils.h"
 
 char *get_filename(char* path) {
@@ -17,5 +20,33 @@ uint32_t get_file_size(FILE *stream) {
     return (uint32_t)size;
 }
 
+int get_file_hash(FILE *stream, unsigned char *hash) {
+    rewind(stream);
 
+    uint32_t fsize = get_file_size(stream);
 
+    unsigned char data[fsize];
+
+    if (fread(data, sizeof(unsigned char), fsize, stream) == 0) {
+        if (ferror(stream)) {
+            fprintf(stderr, "ERROR: get_file_hash: Reading file failed!\n");
+            return -1;
+        }
+    }
+
+    SHA256(data, fsize, hash);
+
+    rewind(stream);
+    return 0;
+}
+
+int hashcmp(unsigned char *hash1, unsigned char *hash2) {
+    return memcmp(hash1, hash2, SHA256_DIGEST_LENGTH);
+}
+
+void print_hex_hash(unsigned char *hash) {
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        printf("%02x", hash[i]);
+    }
+    printf("\n");
+}

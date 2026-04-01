@@ -6,6 +6,8 @@
 
 #include <errno.h>
 
+#include <openssl/sha.h>
+
 #include "network.h"
 #include "utils.h"
 
@@ -14,7 +16,7 @@
 int send_file(peerinfo_t peer, char *fpath) {
     FILE *f = fopen(fpath, "rb");
     if (f == NULL) {
-        fprintf(stderr, "ERROR: send_file: Specified file not found!\n");
+        fprintf(stderr, "ERROR: get_file_hash: file %s couldn't be opened!\n", fpath);
         return -1;
     }
     
@@ -145,6 +147,15 @@ int send_init_packet(peerinfo_t peer, char *fpath, FILE *stream) {
     p.data_len = fsize_len + 1 + strlen(fname) + 1;
     snprintf(p.data, p.data_len, "%s\n%u", fname, fsize);
 
+    get_file_hash(stream, p.hash);
+
+    if (VERBOSE) {
+        printf("File hash: ");
+        print_hex_hash(p.hash);
+    }
+    
+    // TODO: crc
+
     char buffer[MAX_PACKET_BUFFER_SIZE];
     
     if (send_packet(peer, &p, buffer) == -1) {
@@ -170,12 +181,20 @@ int recv_file(int sock) {
 
     char fname[MAX_FPATH_SIZE + 1];
     uint32_t fsize;
+    unsigned char hash[SHA256_DIGEST_LENGTH]; 
 
-    extract_start_data(&p, fname, &fsize);
+    extract_start_data(&p, fname, &fsize); // get file name and size
+    memcpy(hash, p.hash, SHA256_DIGEST_LENGTH); // get file hash
 
     FILE *f = fopen(fname, "wb");
 
+    if (f == NULL) {
+        fprintf(stderr, "ERROR: get_file_hash: file %s couldn't be opened!\n", fname);
+        return -1;
+    }
+
     int bytes_written;
+    
     // Receive DATA packets
     while (1) {
         if (recv_packet(peer, &p) == -1) {
@@ -190,12 +209,36 @@ int recv_file(int sock) {
                 fprintf(stderr, "ERROR: recv_file: Writing file failed!\n");
                 fclose(f);
             }
+            printf("i == 1. NOT writing...!\n");
         }
-
         // else { invalid packet }
     }
 
+    unsigned char hash_check[SHA256_DIGEST_LENGTH];
+
     fclose(f);
+
+    f = fopen(fname, "rb");
+
+    get_file_hash(f, hash_check);
+
+    fclose(f);
+
+    if (VERBOSE) {
+        printf("File hash: ");
+        print_hex_hash(hash_check);
+    }
+    
+    // Compare initial hash with my calculated hash
+    if (hashcmp(hash, hash_check) != 0) {
+        fprintf(stderr, "ERROR: recv_file: Generated hash and received hash do not match!\n");
+        // received file corrupted
+    }
+
+    if (VERBOSE) {
+        printf("INFO: hashcmp passed!\n");
+    }
+
     return 0;
 }
 
