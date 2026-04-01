@@ -50,3 +50,7 @@ void print_hex_hash(unsigned char *hash) {
     }
     printf("\n");
 }
+
+uint32_t get_crc(const char *data, size_t data_len) {
+    return crc32(0L, (const unsigned char *)data, data_len);
+}

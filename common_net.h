@@ -1,27 +1,24 @@
 #include <stdint.h>
-#include <stdio.h>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 
 // Uloha 2
 #include <openssl/sha.h>
 
-#ifndef NETWORK_H
-#define NETWORK_H
-
-#define ACK_TIMEOUT 5
+#ifndef COMMON_NET_H
+#define COMMON_NET_H
 
 #define PORT "8080"
+
+#define MAX_FPATH_SIZE 255
 
 #define HEADER_SIZE (sizeof(enum PacketType) + sizeof(uint32_t)) // enum + uint32_t
 #define MAX_DATA_SIZE 1024 // Do NOT make this lower !!!
 #define MAX_PACKET_BUFFER_SIZE (HEADER_SIZE + MAX_DATA_SIZE)
 
-#define MAX_FPATH_SIZE 255
-
 #define STR(x) #x
 #define XSTR(x) STR(x)
-
 
 /**
 * ACK
@@ -47,8 +44,7 @@ enum PacketType {
     ACK, // Acknowledgement
     START, // Start of data.
     DATA, // Data
-    END, // End of data
-    
+    END, // End of data  
 };
 
 typedef struct packet {
@@ -66,28 +62,10 @@ typedef struct peerinfo {
 } peerinfo_t;
 
 /**
-* Functions called by sender
-*/
-int send_file(peerinfo_t peer, char *fpath);
-int send_packet(peerinfo_t peer, packet_t *p, char *buffer);
-int recv_ack(peerinfo_t peer);
-int send_init_packet(peerinfo_t peer, char *fpath, FILE *stream);
-
-/**
-* Functions called by receiver
-*/
-int recv_file(int sock);
-int recv_packet(peerinfo_t peer, packet_t *p);
-int send_ack(peerinfo_t peer);
-int recv_init_packet(peerinfo_t *peer, packet_t *p);
-
-/**
 * Serialization for sending data on a socket
 */
 void serialize_packet(packet_t *p, char *buffer);
 void deserialize_packet(char *buffer, packet_t *p);
-
-void extract_start_data(packet_t *p, char *fname, uint32_t *fsize);
 
 /**
 * Compares two IPv4 addresses

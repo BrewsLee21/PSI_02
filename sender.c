@@ -6,10 +6,9 @@
 #include <netdb.h>
 
 #include <arpa/inet.h>
-
 #include <unistd.h>
 
-#include "network.h"
+#include "sender_net.h"
 
 int main() {
     struct addrinfo *res, hints;
