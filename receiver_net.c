@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <string.h>
 
@@ -15,11 +16,16 @@ int recv_file(int sock) {
 
     // Receive START packet
     packet_t p;
+    int status;
+    
+    do {
+        status = recv_init_packet(&peer, &p);
+        if (status == ERROR) {
+            fprintf(stderr, "ERROR: recv_file: File reception failed!\n");
+            return ERROR;
+        }
+    } while (status != 0);
 
-    if (recv_init_packet(&peer, &p) == -1) {
-        fprintf(stderr, "ERROR: recv_file: File reception failed!\n");
-        return -1;
-    }
 
     char fname[MAX_FPATH_SIZE + 1];
     uint32_t fsize;
@@ -30,16 +36,25 @@ int recv_file(int sock) {
     FILE *f = fopen(fname, "wb");
 
     if (f == NULL) {
-        fprintf(stderr, "ERROR: get_file_hash: file %s couldn't be opened!\n", fname);
-        return -1;
+        fprintf(stderr, "ERROR: recv_file: file %s couldn't be opened!\n", fname);
+        return ERROR;
     }
 
     int bytes_written;
     
     // Receive DATA packets
     while (1) {
-        if (recv_packet(peer, &p) == -1) {
-            return -1;
+        status = recv_packet(peer, &p);
+        if (status == ERROR) {
+            fprintf(stderr, "ERROR: recv_file: File reception failed!\n");
+            return ERROR;
+        }
+
+        if (status == INVALID_PACKET) {
+            if (VERBOSE) {
+                printf("INFO: Received packet was invalid!\n");
+            }
+            continue;
         }
 
         if (p.type == END) {
@@ -72,7 +87,8 @@ int recv_file(int sock) {
     // Compare initial hash with my calculated hash
     if (hashcmp(hash, hash_check) != 0) {
         printf("WARNING: recv_file: Generated hash and received hash do not match!\n");
-        return -1;
+        return ERROR;
+        // TODO: Ask to receive the file again or something...
         // received file corrupted
     }
 
@@ -90,21 +106,30 @@ int recv_packet(peerinfo_t peer, packet_t *p) {
     socklen_t new_addr_len = sizeof(new_addr);
     
     if (recvfrom(peer.sock, buffer, MAX_PACKET_BUFFER_SIZE, 0, (struct sockaddr *)&new_addr, &new_addr_len) == -1) {
-        // ACK timeout
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return 1;
-        }
-        return -1;
+        fprintf(stderr, "ERROR: recv_packet: Packet reception failed!\n");
+        return ERROR;
     }
 
     // Check peer address
     if (peer.addr_len != new_addr_len ||
         ipcmp(&peer.addr, &new_addr) != 0
     ) {
-        return 1;
+        return INVALID_PACKET;
     }
 
     deserialize_packet(buffer, p);
+
+    // CRC doesn't match => data is corrupted
+    if (check_crc(p->crc, p->data, p->data_len) == 0) {
+        if (VERBOSE) {
+            printf("\tINFO: CRC mismatch!\n");
+        }
+        if (send_nack(peer) == ERROR) {
+            fprintf(stderr, "ERROR: recv_init_packet: Failed to send NACK!\n");
+            return ERROR;
+        }
+        return INVALID_PACKET;
+    }
 
     if (VERBOSE) {
         if (p->type == END) {
@@ -114,10 +139,9 @@ int recv_packet(peerinfo_t peer, packet_t *p) {
         }
     }
 
-    if (send_ack(peer) == -1) {
-        perror("send_ack");
+    if (send_ack(peer) == ERROR) {
         fprintf(stderr, "ERROR: recv_packet: Failed to send ACK!\n");
-        return -1;
+        return ERROR;
     }
     
     return 0;
@@ -134,11 +158,34 @@ int send_ack(peerinfo_t peer) {
     serialize_packet(&ack, buffer);
 
     if (sendto(peer.sock, buffer, HEADER_SIZE + ack.data_len, 0, (struct sockaddr *)&peer.addr, peer.addr_len) == -1) {
-        return -1;
+        fprintf(stderr, "ERROR: send_ack: Failed to send ACK!\n");
+        return ERROR;
     }
 
     if (VERBOSE) {
         printf("INFO: ACK sent!\n");
+    }
+
+    return 0;
+}
+
+int send_nack(peerinfo_t peer) {
+    packet_t nack;
+    nack.type = NACK;
+    nack.data_len = 0;
+    nack.data[0] = 0x00;
+
+    char buffer[MAX_PACKET_BUFFER_SIZE];
+
+    serialize_packet(&nack, buffer);
+
+    if (sendto(peer.sock, buffer, HEADER_SIZE + nack.data_len, 0, (struct sockaddr *)&peer.addr, peer.addr_len) == -1) {
+        fprintf(stderr, "ERROR: Failed to send NACK!\n");
+        return ERROR;
+    }
+
+    if (VERBOSE) {
+        printf("INFO: NACK sent!\n");
     }
 
     return 0;
@@ -150,22 +197,29 @@ int recv_init_packet(peerinfo_t *peer, packet_t *p) {
     int msg_len = recvfrom(peer->sock, buffer, MAX_PACKET_BUFFER_SIZE, 0, (struct sockaddr *)&peer->addr, &peer->addr_len);
 
     if (msg_len == -1) {
-        perror("recvfrom");
         fprintf(stderr, "ERROR: recv_init_packet: START packet not received!\n");
-        return -1;
+        return ERROR;
     }
 
     if (VERBOSE) {
         printf("INFO: START packet received!\n");
     }
 
-    if (send_ack(*peer) == -1) {
-        perror("recv_init_packet");
-        fprintf(stderr, "ERROR: recv_init_packet: Failed to send ACK!\n");
-        return -1;
-    }
-    
     deserialize_packet(buffer, p);
+
+    // CRC doesn't match => data is corrupted
+    if (check_crc(p->crc, p->data, p->data_len) == 0) {
+        if (send_nack(*peer) == ERROR) {
+            fprintf(stderr, "ERROR: recv_init_packet: Failed to send NACK!\n");
+            return ERROR;
+        }
+        return INVALID_PACKET;
+    }
+
+    if (send_ack(*peer) == ERROR) {
+        fprintf(stderr, "ERROR: recv_init_packet: Failed to send ACK!\n");
+        return ERROR;
+    }
     return 0;
 }
 

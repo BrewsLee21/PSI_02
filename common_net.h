@@ -13,12 +13,23 @@
 
 #define MAX_FPATH_SIZE 255
 
-#define HEADER_SIZE (sizeof(enum PacketType) + sizeof(uint32_t)) // enum + uint32_t
+#define TYPE_SIZE sizeof(uint32_t)
+#define DATA_LEN_SIZE sizeof(uint32_t)
+#define CRC_SIZE sizeof(uint32_t)
+
+#define HEADER_SIZE ( \
+    TYPE_SIZE +                 /* type */ \
+    DATA_LEN_SIZE +             /* data_len */ \
+    SHA256_DIGEST_LENGTH +      /* SHA256 hash */ \
+    CRC_SIZE                    /* CRC */ \
+)
 #define MAX_DATA_SIZE 1024 // Do NOT make this lower !!!
 #define MAX_PACKET_BUFFER_SIZE (HEADER_SIZE + MAX_DATA_SIZE)
 
 #define STR(x) #x
 #define XSTR(x) STR(x)
+
+#define ERROR 100
 
 /**
 * ACK
@@ -42,17 +53,26 @@
 
 enum PacketType {
     ACK, // Acknowledgement
+    NACK, // Not acknowledgement (Sent instead of ACK when the received packet was invalid.)
     START, // Start of data.
     DATA, // Data
     END, // End of data  
 };
 
+const char *TypeStr[] = {
+    "ACK",
+    "NACK",
+    "START",
+    "DATA",
+    "END"
+};
+
 typedef struct packet {
 	enum PacketType type; // packet type
 	uint32_t data_len; // length of data (in bytes)
-	char data[MAX_DATA_SIZE];
 	unsigned char hash[SHA256_DIGEST_LENGTH]; // Only used in the START (init) packet, otherwise value might be undefined
 	uint32_t crc;
+	char data[MAX_DATA_SIZE];
 } packet_t;
 
 typedef struct peerinfo {

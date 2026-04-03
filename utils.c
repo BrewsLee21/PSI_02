@@ -2,6 +2,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
+// Uloha 2
 #include <zlib.h>
 #include <openssl/sha.h>
 
@@ -53,4 +54,11 @@ void print_hex_hash(unsigned char *hash) {
 
 uint32_t get_crc(const char *data, size_t data_len) {
     return crc32(0L, (const unsigned char *)data, data_len);
+}
+
+int check_crc(uint32_t received_crc, const char *data, size_t data_len) {
+    if (received_crc == get_crc(data, data_len)) {
+        return 1;
+    }
+    return 0;
 }

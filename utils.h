@@ -13,5 +13,6 @@ int hashcmp(unsigned char *hash1, unsigned char *hash2);
 void print_hex_hash(unsigned char *hash);
 
 uint32_t get_crc(const char *data, size_t data_len);
+int check_crc(uint32_t received_crc, const char *data, size_t data_len);
 
 #endif

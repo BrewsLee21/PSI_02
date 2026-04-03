@@ -12,7 +12,7 @@ int send_file(peerinfo_t peer, char *fpath) {
     FILE *f = fopen(fpath, "rb");
     if (f == NULL) {
         fprintf(stderr, "ERROR: get_file_hash: file %s couldn't be opened!\n", fpath);
-        return -1;
+        return ERROR;
     }
     
     int bytes_read;
@@ -20,7 +20,7 @@ int send_file(peerinfo_t peer, char *fpath) {
     // Send START packet
     if (send_init_packet(peer, fpath, f) == -1) {
         fprintf(stderr, "ERROR: send_file: File transfer failed!\n");
-        return -1;
+        return ERROR;
     }
 
     packet_t p;
@@ -37,7 +37,7 @@ int send_file(peerinfo_t peer, char *fpath) {
                 break;
             } else {
                 fprintf(stderr, "ERROR: send_file: Reading file failed!\n");
-                return -1;
+                return ERROR;
                 
             }
         }
@@ -46,10 +46,11 @@ int send_file(peerinfo_t peer, char *fpath) {
         p.type = DATA;
         p.data_len = bytes_read;
         memcpy(p.data, chunk, bytes_read);
+        p.crc = get_crc(p.data, p.data_len);
     
         if (send_packet(peer, &p, buffer) == -1) {
             fprintf(stderr, "ERROR: send_file: File transfer failed!\n");
-            return -1;
+            return ERROR;
         }
     }
 
@@ -57,10 +58,11 @@ int send_file(peerinfo_t peer, char *fpath) {
     p.type = END;
     p.data_len = 0;
     p.data[0] = 0x00;
+    p.crc = get_crc(p.data, p.data_len);
 
-    if (send_packet(peer, &p, buffer) == -1) {
+    if (send_packet(peer, &p, buffer) == ERROR) {
         fprintf(stderr, "ERROR: send_file: File transfer failed!\n");
-        return -1;
+        return ERROR;
     }
 
     fclose(f);
@@ -72,19 +74,19 @@ int send_packet(peerinfo_t peer, packet_t *p, char *buffer) {
     while (1) {
         int bytes_sent = send(peer.sock, buffer, HEADER_SIZE + p->data_len, 0);
         if (bytes_sent == -1) {
-            return -1;
+            return ERROR;
         }
 
         if (VERBOSE) {
-            printf("INFO: packet type %d sent!\n", p->type);
+            printf("INFO: packet type %s sent!\n", TypeStr[p->type]);
         }
     
         int status = recv_ack(peer);
-        if (status == 1) { // ACK not received
+        if (status == ACK_NOT_RECEIVED) { // ACK not received
             continue; // resend packet again
-        } else if (status == -1) {
+        } else if (status == ERROR) {
             fprintf(stderr, "ERROR: send_packet: File transfer failed!\n");
-            return -1;
+            return ERROR;
         }
         
         break;
@@ -106,26 +108,37 @@ int recv_ack(peerinfo_t peer) {
         // ACK timeout
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             if (VERBOSE) {
-                printf("\nINFO: ACK not received! Resending packet...\n");
+                printf("\tINFO: ACK not received! Resending packet...\n");
             }
-            return 1;
+            return ACK_NOT_RECEIVED;
         }
-        return -1;
+        return ERROR;
     }
 
     deserialize_packet(buffer, &p);
 
-    // Check peer address
+    // Check if address matches
     if (peer.addr_len != new_addr_len ||
         ipcmp(&peer.addr, &new_addr) != 0
     ) {
-        return 1;
+        if (VERBOSE) {
+            printf("\tINFO: ACK received from different address! Resending packet...\n");
+        }
+        return ACK_NOT_RECEIVED;
     }
 
-    if (p.type != ACK) {
-        return 1;
+    if (p.type == NACK) {
+        if (VERBOSE) {
+            printf("\tINFO: NACK received! Resending packet...\n");
+        }
+        return ACK_NOT_RECEIVED;
+    } else if (p.type != ACK) {
+        if (VERBOSE) {
+            printf("\tINFO: Invalid packet type received! Resending packet...\n");
+        }
+        return ACK_NOT_RECEIVED;
     }
-
+    
     if (VERBOSE) {
         printf("\tINFO: ACK received!\n");  
     }
@@ -154,9 +167,9 @@ int send_init_packet(peerinfo_t peer, char *fpath, FILE *stream) {
 
     char buffer[MAX_PACKET_BUFFER_SIZE];
     
-    if (send_packet(peer, &p, buffer) == -1) {
+    if (send_packet(peer, &p, buffer) == ERROR) {
         fprintf(stderr, "ERROR: send_init_packet: File transfer failed!\n");
-        return -1;
+        return ERROR;
     }
 
     return 0;
