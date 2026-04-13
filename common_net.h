@@ -59,13 +59,7 @@ enum PacketType {
     END, // End of data  
 };
 
-const char *TypeStr[] = {
-    "ACK",
-    "NACK",
-    "START",
-    "DATA",
-    "END"
-};
+extern char *TypeStr[];
 
 typedef struct packet {
 	enum PacketType type; // packet type

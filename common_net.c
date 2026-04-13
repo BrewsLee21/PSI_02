@@ -3,6 +3,14 @@
 
 #include "common_net.h"
 
+char *TypeStr[] = {
+    "ACK",
+    "NACK",
+    "START",
+    "DATA",
+    "END"
+};
+
 void serialize_packet(packet_t *p, char *buffer) {
     uint32_t type_net = htonl((uint32_t)p->type);
     uint32_t len_net = htonl(p->data_len);
