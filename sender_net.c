@@ -72,7 +72,7 @@ int send_file(peerinfo_t peer, char *fpath) {
 int send_packet(peerinfo_t peer, packet_t *p, char *buffer) {
     serialize_packet(p, buffer);
     while (1) {
-        int bytes_sent = send(peer.sock, buffer, HEADER_SIZE + p->data_len, 0);
+        int bytes_sent = sendto(peer.sock, buffer, HEADER_SIZE + p->data_len, 0, (struct sockaddr *)&peer.addr, peer.addr_len);
         if (bytes_sent == -1) {
             return ERROR;
         }
