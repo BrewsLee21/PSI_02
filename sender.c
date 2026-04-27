@@ -11,7 +11,7 @@
 #include "sender_net.h"
 
 int main() {
-    struct addrinfo *res, hints;
+    struct addrinfo *res, *local, hints;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; // IPv4
@@ -24,7 +24,12 @@ int main() {
     scanf("%s", receiver_addr);
     getchar(); // Consume '\n'
 
-    if (getaddrinfo(receiver_addr, PORT, &hints, &res) != 0) {
+    if (getaddrinfo(receiver_addr, SENDER_TARGET_PORT, &hints, &res) != 0) {
+        fprintf(stderr, "ERROR: getaddrinfo() call failed!\n");
+        return 1;
+    }
+
+    if (getaddrinfo(NULL, SENDER_LOCAL_PORT, &hints, &local) != 0) {
         fprintf(stderr, "ERROR: getaddrinfo() call failed!\n");
         return 1;
     }
@@ -38,6 +43,12 @@ int main() {
     for (p = res; p != NULL; p = p->ai_next) {
 
         if ((my_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            continue;
+        }
+
+        if (bind(my_socket, local->ai_addr, local->ai_addrlen) == -1) {
+            perror("bind");
+            close(my_socket);
             continue;
         }
 
@@ -86,6 +97,7 @@ int main() {
     printf("File transmitted successfully!\n");
 
     freeaddrinfo(res);
+    freeaddrinfo(local);
     close(my_socket);
     return 0;
 }

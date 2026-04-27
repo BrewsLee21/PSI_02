@@ -1,4 +1,4 @@
-
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -157,6 +157,9 @@ int send_ack(peerinfo_t peer) {
 
     serialize_packet(&ack, buffer);
 
+    // Send ACK to Netderper's ACK listener port, not back to the data source port
+    peer.addr.sin_port = htons(atoi(RECEIVER_ACK_TARGET_PORT));
+
     if (sendto(peer.sock, buffer, HEADER_SIZE + ack.data_len, 0, (struct sockaddr *)&peer.addr, peer.addr_len) == -1) {
         fprintf(stderr, "ERROR: send_ack: Failed to send ACK!\n");
         return ERROR;
@@ -178,6 +181,9 @@ int send_nack(peerinfo_t peer) {
     char buffer[MAX_PACKET_BUFFER_SIZE];
 
     serialize_packet(&nack, buffer);
+
+    // Send NACK to Netderper's ACK listener port, not back to the data source port
+    peer.addr.sin_port = htons(atoi(RECEIVER_ACK_TARGET_PORT));
 
     if (sendto(peer.sock, buffer, HEADER_SIZE + nack.data_len, 0, (struct sockaddr *)&peer.addr, peer.addr_len) == -1) {
         fprintf(stderr, "ERROR: Failed to send NACK!\n");

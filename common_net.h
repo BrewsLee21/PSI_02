@@ -9,8 +9,6 @@
 #ifndef COMMON_NET_H
 #define COMMON_NET_H
 
-#define PORT "8080"
-
 #define MAX_FPATH_SIZE 255
 
 #define TYPE_SIZE sizeof(uint32_t)
@@ -23,7 +21,7 @@
     SHA256_DIGEST_LENGTH +      /* SHA256 hash */ \
     CRC_SIZE                    /* CRC */ \
 )
-#define MAX_DATA_SIZE 1024 // Do NOT make this lower !!!
+#define MAX_DATA_SIZE 16384 // Do NOT make this lower !!!
 #define MAX_PACKET_BUFFER_SIZE (HEADER_SIZE + MAX_DATA_SIZE)
 
 #define STR(x) #x

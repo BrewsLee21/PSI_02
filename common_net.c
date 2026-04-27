@@ -44,12 +44,16 @@ void deserialize_packet(char *buffer, packet_t *p) {
     p->type = (enum PacketType)ntohl(type_net);
     p->data_len = ntohl(len_net);
     p->crc = ntohl(crc_net);
+
+    if (p->data_len > MAX_DATA_SIZE) {
+        p->data_len = 0;
+    }
+
     memcpy(p->data, buffer + offset, p->data_len);
 }
 
 int ipcmp(struct sockaddr_in *ip1, struct sockaddr_in *ip2) {
     if (ip1->sin_family == ip2->sin_family &&
-        ip1->sin_port == ip2->sin_port &&
         ip1->sin_addr.s_addr == ip2->sin_addr.s_addr
     ) {
         return 0;

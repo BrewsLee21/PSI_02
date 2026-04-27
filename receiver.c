@@ -18,7 +18,7 @@ int main() {
     hints.ai_socktype = SOCK_DGRAM; // UDP
     hints.ai_flags = AI_PASSIVE; // Any available local address
 
-    if (getaddrinfo(NULL, PORT, &hints, &res) != 0) {
+    if (getaddrinfo(NULL, RECEIVER_LOCAL_PORT, &hints, &res) != 0) {
         fprintf(stderr, "ERROR: getaddrinfo() call failed!\n");
         return 1;
     }
