@@ -51,13 +51,3 @@ void deserialize_packet(char *buffer, packet_t *p) {
 
     memcpy(p->data, buffer + offset, p->data_len);
 }
-
-int ipcmp(struct sockaddr_in *ip1, struct sockaddr_in *ip2) {
-    if (ip1->sin_family == ip2->sin_family &&
-        ip1->sin_addr.s_addr == ip2->sin_addr.s_addr
-    ) {
-        return 0;
-    }
-
-    return 1;
-}

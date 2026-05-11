@@ -21,7 +21,7 @@
     SHA256_DIGEST_LENGTH +      /* SHA256 hash */ \
     CRC_SIZE                    /* CRC */ \
 )
-#define MAX_DATA_SIZE 16384 // Do NOT make this lower !!!
+#define MAX_DATA_SIZE 1024 // Do NOT make this lower than 1024!!!
 #define MAX_PACKET_BUFFER_SIZE (HEADER_SIZE + MAX_DATA_SIZE)
 
 #define STR(x) #x
@@ -78,10 +78,5 @@ typedef struct peerinfo {
 */
 void serialize_packet(packet_t *p, char *buffer);
 void deserialize_packet(char *buffer, packet_t *p);
-
-/**
-* Compares two IPv4 addresses
-*/
-int ipcmp(struct sockaddr_in *ip1, struct sockaddr_in *ip2);
 
 #endif

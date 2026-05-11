@@ -110,13 +110,6 @@ int recv_packet(peerinfo_t peer, packet_t *p) {
         return ERROR;
     }
 
-    // Check peer address
-    if (peer.addr_len != new_addr_len ||
-        ipcmp(&peer.addr, &new_addr) != 0
-    ) {
-        return INVALID_PACKET;
-    }
-
     deserialize_packet(buffer, p);
 
     // CRC doesn't match => data is corrupted

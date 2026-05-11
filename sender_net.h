@@ -5,7 +5,7 @@
 #ifndef SENDER_NET_H
 #define SENDER_NET_H
 
-#define ACK_TIMEOUT 5
+#define ACK_TIMEOUT 2
 #define ACK_NOT_RECEIVED 101
 
 #define SENDER_LOCAL_PORT "5333"   // Port the sender binds to locally

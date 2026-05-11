@@ -3,7 +3,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <netdb.h>
 
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -11,50 +10,42 @@
 #include "receiver_net.h"
 
 int main() {
-    struct addrinfo *res, hints;
-
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET; // IPv4
-    hints.ai_socktype = SOCK_DGRAM; // UDP
-    hints.ai_flags = AI_PASSIVE; // Any available local address
-
-    if (getaddrinfo(NULL, RECEIVER_LOCAL_PORT, &hints, &res) != 0) {
-        fprintf(stderr, "ERROR: getaddrinfo() call failed!\n");
+    // Create socket
+    int my_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (my_socket == -1) {
+        perror("socket");
         return 1;
     }
 
-    int my_socket;
-    
-    // Create socket and bind to the first available address
-    struct addrinfo *p;
-    for (p = res; p != NULL; p = p->ai_next) {
-        if ((my_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-            continue;
-        }
-
-        if (bind(my_socket, p->ai_addr, p->ai_addrlen) == -1) {
-            close(my_socket);
-            continue;
-        }
-
-        break;
-    }
-    
-    freeaddrinfo(res);
-
-    if (p == NULL) {
-        fprintf(stderr, "ERROR: Failed to bind to an address!\n");
+    // Allow reuse of local port (avoids TIME_WAIT issues on restart)
+    int opt = 1;
+    if (setsockopt(my_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        perror("setsockopt SO_REUSEADDR");
+        close(my_socket);
         return 1;
     }
-    
+
+    // Bind to local port
+    struct sockaddr_in local_addr;
+    memset(&local_addr, 0, sizeof(local_addr));
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_port = htons(atoi(RECEIVER_LOCAL_PORT));
+    local_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(my_socket, (struct sockaddr *)&local_addr, sizeof(local_addr)) == -1) {
+        perror("bind");
+        close(my_socket);
+        return 1;
+    }
+
     printf("Waiting...\n");
 
     if (recv_file(my_socket) == -1) {
+        close(my_socket);
         return 1;
     }
 
     printf("Done\n");
-    
 
     close(my_socket);
     return 0;

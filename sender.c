@@ -3,7 +3,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <netdb.h>
 
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -11,82 +10,72 @@
 #include "sender_net.h"
 
 int main() {
-    struct addrinfo *res, *local, hints;
-
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET; // IPv4
-    hints.ai_socktype = SOCK_DGRAM; // UDP
-    hints.ai_flags = AI_PASSIVE; // Any available local address
-
-    char receiver_addr[INET6_ADDRSTRLEN];
+    char receiver_addr[INET_ADDRSTRLEN];
 
     printf("Enter receiver IP address: ");
     scanf("%s", receiver_addr);
     getchar(); // Consume '\n'
 
-    if (getaddrinfo(receiver_addr, SENDER_TARGET_PORT, &hints, &res) != 0) {
-        fprintf(stderr, "ERROR: getaddrinfo() call failed!\n");
+    // Create socket
+    int my_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (my_socket == -1) {
+        perror("socket");
         return 1;
     }
 
-    if (getaddrinfo(NULL, SENDER_LOCAL_PORT, &hints, &local) != 0) {
-        fprintf(stderr, "ERROR: getaddrinfo() call failed!\n");
+    // Allow reuse of local port (avoids TIME_WAIT issues on restart)
+    int opt = 1;
+    if (setsockopt(my_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+        perror("setsockopt SO_REUSEADDR");
+        close(my_socket);
+        return 1;
+    }
+
+    // Bind to local port
+    struct sockaddr_in local_addr;
+    memset(&local_addr, 0, sizeof(local_addr));
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_port = htons(atoi(SENDER_LOCAL_PORT));
+    local_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(my_socket, (struct sockaddr *)&local_addr, sizeof(local_addr)) == -1) {
+        perror("bind");
+        close(my_socket);
+        return 1;
+    }
+
+    // Set ACK receive timeout
+    struct timeval tv;
+    tv.tv_sec = ACK_TIMEOUT;
+    tv.tv_usec = 0;
+    if (setsockopt(my_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) == -1) {
+        perror("setsockopt SO_RCVTIMEO");
+        close(my_socket);
+        return 1;
+    }
+
+    // Set up target (receiver/Netderper) address
+    struct sockaddr_in target_addr;
+    memset(&target_addr, 0, sizeof(target_addr));
+    target_addr.sin_family = AF_INET;
+    target_addr.sin_port = htons(atoi(SENDER_TARGET_PORT));
+    if (inet_pton(AF_INET, receiver_addr, &target_addr.sin_addr) != 1) {
+        fprintf(stderr, "ERROR: Invalid IP address: %s\n", receiver_addr);
+        close(my_socket);
         return 1;
     }
 
     printf("Sending to: %s\n", receiver_addr);
-    
-    int my_socket;
-    
-    // Create socket
-    struct addrinfo *p;
-    for (p = res; p != NULL; p = p->ai_next) {
-
-        if ((my_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-            continue;
-        }
-
-        if (bind(my_socket, local->ai_addr, local->ai_addrlen) == -1) {
-            perror("bind");
-            close(my_socket);
-            continue;
-        }
-
-        break;
-    }
-
-    struct timeval tv;
-    tv.tv_sec = ACK_TIMEOUT;
-    tv.tv_usec = 0;
-
-    if (p == NULL) {
-        fprintf(stderr, "ERROR: Failed to create socket!\n");
-        return 1;
-    }
-
-    if (setsockopt(my_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv)) == -1) {
-        fprintf(stderr, "ERROR: Failed to set socket options!\n");
-        return 1;
-    }
-
-    /*
-    if (connect(my_socket, p->ai_addr, p->ai_addrlen)) {
-        fprintf(stderr, "ERROR: Failed to connect to receiver!\n");
-        close(my_socket);
-        return 1;
-    }
-    */
 
     peerinfo_t peer;
     peer.sock = my_socket;
-    memcpy(&peer.addr, p->ai_addr, sizeof(struct sockaddr_in));
-    peer.addr_len = p->ai_addrlen;
+    peer.addr = target_addr;
+    peer.addr_len = sizeof(target_addr);
 
     char fpath[MAX_FPATH_SIZE + 1];
-
     printf("Enter file path (%d bytes): ", MAX_FPATH_SIZE);
     scanf("%" XSTR(MAX_FPATH_SIZE) "s", fpath);
-    
+
     printf("Sending file: %s\n", fpath);
 
     if (send_file(peer, fpath) == -1) {
@@ -96,8 +85,6 @@ int main() {
 
     printf("File transmitted successfully!\n");
 
-    freeaddrinfo(res);
-    freeaddrinfo(local);
     close(my_socket);
     return 0;
 }

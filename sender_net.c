@@ -117,16 +117,6 @@ int recv_ack(peerinfo_t peer) {
 
     deserialize_packet(buffer, &p);
 
-    // Check if address matches
-    if (peer.addr_len != new_addr_len ||
-        ipcmp(&peer.addr, &new_addr) != 0
-    ) {
-        if (VERBOSE) {
-            printf("\tINFO: ACK received from different address! Resending packet...\n");
-        }
-        return ACK_NOT_RECEIVED;
-    }
-
     if (p.type == NACK) {
         if (VERBOSE) {
             printf("\tINFO: NACK received! Resending packet...\n");
