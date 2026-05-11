@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <errno.h>
 
 #include "utils.h"
@@ -152,6 +157,10 @@ int send_ack(peerinfo_t peer) {
 
     // Send ACK to Netderper's ACK listener port, not back to the data source port
     peer.addr.sin_port = htons(atoi(RECEIVER_ACK_TARGET_PORT));
+
+    printf("DEBUG: Sending ACK to %s:%d\n",
+        inet_ntoa(peer.addr.sin_addr),
+        ntohs(peer.addr.sin_port));
 
     if (sendto(peer.sock, buffer, HEADER_SIZE + ack.data_len, 0, (struct sockaddr *)&peer.addr, peer.addr_len) == -1) {
         fprintf(stderr, "ERROR: send_ack: Failed to send ACK!\n");
