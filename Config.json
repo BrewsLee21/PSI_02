@@ -1,6 +1,6 @@
 {
   "Data": {
-    "Connection": { "SourcePort": 5111, "TargetPort": 5444, "TargetHostName": "10.1.1.110" },
+    "Connection": { "SourcePort": 5111, "TargetPort": 5444, "TargetHostName": "147.32.221.5" },
     "Manipulation": { "DropRate": 0, "ErrorRate": 0 },
     "Delay": { "Mean": 20.0, "StdDev": 25.0 }
   },

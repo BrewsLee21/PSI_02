@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 
 #include <sys/socket.h>
@@ -46,17 +47,18 @@ int recv_file(int sock) {
     }
 
     int bytes_written;
+    uint32_t last_seq = UINT32_MAX; // impossible initial value
     
     // Receive DATA packets
     while (1) {
-        status = recv_packet(peer, &p);
+        status = recv_packet(peer, &p, &last_seq);
         if (status == ERROR) {
             fprintf(stderr, "ERROR: recv_file: File reception failed!\n");
             return ERROR;
         }
 
-        if (status == INVALID_PACKET) {
-            if (VERBOSE) {
+        if (status == INVALID_PACKET || status == DUPLICATE_PACKET) {
+            if (VERBOSE && status == INVALID_PACKET) {
                 printf("INFO: Received packet was invalid!\n");
             }
             continue;
@@ -104,7 +106,7 @@ int recv_file(int sock) {
     return 0;
 }
 
-int recv_packet(peerinfo_t peer, packet_t *p) {
+int recv_packet(peerinfo_t peer, packet_t *p, uint32_t *last_seq) {
     char buffer[MAX_PACKET_BUFFER_SIZE];
 
     struct sockaddr_in new_addr;
@@ -129,11 +131,25 @@ int recv_packet(peerinfo_t peer, packet_t *p) {
         return INVALID_PACKET;
     }
 
+    // Duplicate packet — re-ACK but don't process again
+    if (p->seq == *last_seq) {
+        if (VERBOSE) {
+            printf("\tINFO: Duplicate packet (seq %u), re-ACKing\n", p->seq);
+        }
+        if (send_ack(peer) == ERROR) {
+            fprintf(stderr, "ERROR: recv_packet: Failed to send ACK!\n");
+            return ERROR;
+        }
+        return DUPLICATE_PACKET;
+    }
+
+    *last_seq = p->seq;
+
     if (VERBOSE) {
         if (p->type == END) {
             printf("INFO: END packet!\n");
         } else if (p->type == DATA) {
-            printf("INFO: DATA packet: %u\n", p->data_len);
+            printf("INFO: DATA packet: %u (seq %u)\n", p->data_len, p->seq);
         }
     }
 
@@ -150,6 +166,7 @@ int send_ack(peerinfo_t peer) {
     ack.type = ACK;
     ack.data_len = 0;
     ack.data[0] = 0x00;
+    ack.crc = get_crc(ack.data, ack.data_len);
 
     char buffer[MAX_PACKET_BUFFER_SIZE];
 
@@ -179,6 +196,7 @@ int send_nack(peerinfo_t peer) {
     nack.type = NACK;
     nack.data_len = 0;
     nack.data[0] = 0x00;
+    nack.crc = get_crc(nack.data, nack.data_len);
 
     char buffer[MAX_PACKET_BUFFER_SIZE];
 

@@ -4,12 +4,13 @@
 #define RECEIVER_NET_H
 
 #define INVALID_PACKET 102
+#define DUPLICATE_PACKET 103
 
 #define RECEIVER_LOCAL_PORT "5444"       // Port receiver binds to locally (listens for data)
 #define RECEIVER_ACK_TARGET_PORT "5222"  // Port to send ACKs to (Netderper's ACK listener)
 
 int recv_file(int sock);
-int recv_packet(peerinfo_t peer, packet_t *p);
+int recv_packet(peerinfo_t peer, packet_t *p, uint32_t *last_seq);
 int send_ack(peerinfo_t peer);
 int send_nack(peerinfo_t peer);
 int recv_init_packet(peerinfo_t *peer, packet_t *p);

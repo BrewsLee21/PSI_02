@@ -14,12 +14,14 @@
 #define TYPE_SIZE sizeof(uint32_t)
 #define DATA_LEN_SIZE sizeof(uint32_t)
 #define CRC_SIZE sizeof(uint32_t)
+#define SEQ_SIZE sizeof(uint32_t)
 
 #define HEADER_SIZE ( \
     TYPE_SIZE +                 /* type */ \
     DATA_LEN_SIZE +             /* data_len */ \
     SHA256_DIGEST_LENGTH +      /* SHA256 hash */ \
-    CRC_SIZE                    /* CRC */ \
+    CRC_SIZE +                  /* CRC */ \
+    SEQ_SIZE                    /* sequence number */ \
 )
 #define MAX_DATA_SIZE 1024 // Do NOT make this lower than 1024!!!
 #define MAX_PACKET_BUFFER_SIZE (HEADER_SIZE + MAX_DATA_SIZE)
@@ -64,6 +66,7 @@ typedef struct packet {
 	uint32_t data_len; // length of data (in bytes)
 	unsigned char hash[SHA256_DIGEST_LENGTH]; // Only used in the START (init) packet, otherwise value might be undefined
 	uint32_t crc;
+	uint32_t seq; // sequence number
 	char data[MAX_DATA_SIZE];
 } packet_t;
 

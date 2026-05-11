@@ -26,6 +26,7 @@ int send_file(peerinfo_t peer, char *fpath) {
     packet_t p;
     char buffer[MAX_PACKET_BUFFER_SIZE];
     char chunk[MAX_DATA_SIZE];
+    uint32_t seq = 1; // 0 is used by START packet
     
     // Read entire file one chunk at a time
     while (1) {
@@ -45,6 +46,7 @@ int send_file(peerinfo_t peer, char *fpath) {
         // Send DATA packet
         p.type = DATA;
         p.data_len = bytes_read;
+        p.seq = seq++;
         memcpy(p.data, chunk, bytes_read);
         p.crc = get_crc(p.data, p.data_len);
     
@@ -56,6 +58,7 @@ int send_file(peerinfo_t peer, char *fpath) {
 
     // Send END packet
     p.type = END;
+    p.seq = seq++;
     p.data_len = 0;
     p.data[0] = 0x00;
     p.crc = get_crc(p.data, p.data_len);
@@ -117,6 +120,14 @@ int recv_ack(peerinfo_t peer) {
 
     deserialize_packet(buffer, &p);
 
+    // CRC doesn't match => ACK is corrupted, resend
+    if (check_crc(p.crc, p.data, p.data_len) == 0) {
+        if (VERBOSE) {
+            printf("\tINFO: ACK CRC mismatch! Resending packet...\n");
+        }
+        return ACK_NOT_RECEIVED;
+    }
+
     if (p.type == NACK) {
         if (VERBOSE) {
             printf("\tINFO: NACK received! Resending packet...\n");
@@ -142,6 +153,7 @@ int send_init_packet(peerinfo_t peer, char *fpath, FILE *stream) {
     
     packet_t p;
     p.type = START;
+    p.seq = 0;
     p.data_len = fsize_len + 1 + strlen(fname) + 1;
     snprintf(p.data, p.data_len, "%s\n%u", fname, fsize);
 
